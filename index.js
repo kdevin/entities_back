@@ -166,13 +166,7 @@ Promise.reduce(pool, function(accumulator, url){
 .then(function(){
 	console.log("Initiating the JSON files creation process...")
 	readDownloadedFiles();
-}, function(err){
-	console.error("Oops, an error occured during the crawler...");
-	console.error(err);
 })
-.then(function(){
-	console.log("Process finished!");
-});
 
 /* To crawl math report */
 
