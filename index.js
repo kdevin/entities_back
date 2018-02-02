@@ -32,6 +32,12 @@ function crawlFromUrl(initialURL) {
 	return new Promise(function (resolve, reject){
 		// Crawled URL
 		var parsedJson = JSON.parse(fs.readFileSync("crawled_urls.json"));
+		parsedJson.urls = uniqueArray(parsedJson.urls);
+
+		var map = new Map();
+		parsedJson.urls.forEach(function(element){
+			map.set(element, 1);
+		});
 
 		// Crawler with configuration
 	    var crawler = new Crawler(initialURL);
@@ -80,7 +86,7 @@ function crawlFromUrl(initialURL) {
 
 		// We add a fetch condition : the URL must respect the poolpath, or hasn't been crawled yet
 		crawler.addFetchCondition(function(queueItem, referrerQueueItem, callback) {
-			callback(null, queueItem.path.startsWith(poolpath) && !parsedJson.urls.includes(queueItem.url));
+			callback(null, queueItem.path.startsWith(poolpath) && map.get(queueItem.url) === undefined);
 		    //callback(null, queueItem.path.startsWith(poolpath) || (queueItem.path.indexOf("-vs-") > -1 && queueItem.path.indexOf("/report/") > -1));
 		});
 
@@ -95,9 +101,8 @@ function crawlFromUrl(initialURL) {
 		});
 
 	    // Crawl started
-	    crawler.start();
+	    //crawler.start();
 	});
-	
 };
 
 function readDownloadedFiles(){
@@ -168,32 +173,13 @@ Promise.reduce(pool, function(accumulator, url){
 	readDownloadedFiles();
 })
 
-/* To crawl math report */
-
-// if(queueItem.url.indexOf("-vs-") > -1 && queueItem.url.indexOf("/report/") > -1){
-//     // Path to save file
-//     var filepath = htmlpath + urlSplitted[4] + "-" + urlSplitted[5] + ".html";
-
-//     if (!fs.existsSync(htmlpath)){
-//         fs.mkdirSync(htmlpath);
-//     }
-//     fs.writeFile(filepath, responseBuffer, function(err) { 
-//         if (err) console.log("ERROR when writing the file.");
-//     });
-
-//     console.log("I just received %s (%d bytes)", queueItem.url, responseBuffer.length);
-//     console.log("It was a resource of type %s", response.headers["content-type"]);
-
-//     parsedJson.urls.push(queueItem.url);
-// }
-
 /* To remove duplicates */
 
-// function uniqueArray(arrArg) {
-//     return arrArg.filter(function(elem, pos,arr) {
-//         return arr.indexOf(elem) == pos;
-//     });
-// };
+function uniqueArray(arrArg) {
+    return arrArg.filter(function(elem, pos, arr) {
+        return arr.indexOf(elem) == pos;
+   	});
+};
 
 // Deleting duplicates
 // parsedJson.urls = uniqueArray(parsedJson.urls);
