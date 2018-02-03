@@ -2,25 +2,12 @@ const cheerio = require('cheerio'),
 	fs = require('fs'),
 	path = require('path'),
 	Crawler = require('simplecrawler'),
-	Promise = require('bluebird');
+	Promise = require('bluebird'),
+	exec = require('child_process').exec;
 
 
 var pool = [
-	"http://www.skysports.com/football/news/more/1",
-	"http://www.skysports.com/football/news/more/2",
-	"http://www.skysports.com/football/news/more/3",
-	"http://www.skysports.com/football/news/more/4",
-	"http://www.skysports.com/football/news/more/5",
-	"http://www.skysports.com/football/news/more/6",
-	"http://www.skysports.com/football/news/more/7",
-	"http://www.skysports.com/football/news/more/8",
-	"http://www.skysports.com/football/news/more/9",
-	"http://www.skysports.com/football/news/more/10",
-	"http://www.skysports.com/football/news/more/11",
-	"http://www.skysports.com/football/news/more/12",
-	"http://www.skysports.com/football/news/more/13",
-	"http://www.skysports.com/football/news/more/14",
-	"http://www.skysports.com/football/news/more/15",
+	"http://www.skysports.com/football/news/more/1"
 ];
 
 const poolpath = "/football/news";
@@ -28,11 +15,12 @@ const poolpath = "/football/news";
 const htmlpath = './download/',
 	jsonpath = './json/';
 
-function crawlFromUrl(initialURL) {
+var compteur = 0
+
+var crawlFromUrl = function(initialURL) {
 	return new Promise(function (resolve, reject){
 		// Crawled URL
 		var parsedJson = JSON.parse(fs.readFileSync("crawled_urls.json"));
-		parsedJson.urls = uniqueArray(parsedJson.urls);
 
 		var map = new Map();
 		parsedJson.urls.forEach(function(element){
@@ -101,35 +89,40 @@ function crawlFromUrl(initialURL) {
 		});
 
 	    // Crawl started
-	    //crawler.start();
+	    crawler.start();
 	});
-};
+}
 
-function readDownloadedFiles(){
-	var promises = [];
+var readDownloadedFiles = function(){
+	return new Promise(function(resolve, reject){
+		console.log("HTML extraction begins.")
+		var promises = [];
 
-	fs.readdir(htmlpath, (err, files) => {
-		if(err){
-			console.error("ERROR when reading the folder.");
-			reject(err);
-		}
-		files.forEach(file => {
-			var jsonFile = jsonpath+path.basename(file, '.html')+".json";
-			if(!fs.existsSync(jsonFile)){
-				promises.push(loadHtmlFile(file));
+		fs.readdir(htmlpath, (err, files) => {
+			if(err){
+				console.error("ERROR when reading the folder.");
+				reject(err);
 			}
-		});
+			files.forEach(file => {
+				var jsonFile = jsonpath+path.basename(file, '.html')+".json";
+				if(!fs.existsSync(jsonFile)){
+					promises.push(loadHtmlFile(file));
+				}
+			});
 
-		Promise.all(promises).then(function(){
-			console.log("All JSON files created!");
-		}, function(err){
-			console.log("Oops, an error occured during the JSON files creation process...");
-			console.error(err);
+			Promise.all(promises).then(function(){
+				console.log("All JSON files created!");
+				resolve();
+			}, function(err){
+				console.log("Oops, an error occured during the JSON files creation process...");
+				console.error(err);
+			});
 		});
 	});
 }
 
-function loadHtmlFile(file){
+
+var loadHtmlFile = function(file){
 	return new Promise((resolve, reject) => {
 		var htmlFile = htmlpath+file;
 		var jsonFile = jsonpath+path.basename(file, '.html')+".json";
@@ -165,21 +158,63 @@ function loadHtmlFile(file){
 	});
 }
 
+var dbpediaExtraction = function(){
+	return new Promise((resolve, reject) => {
+		console.log("DBpedia extraction begins.")
+
+		var files = fs.readdirSync(jsonpath, (err, data) => {
+			if(err) reject();
+		})
+
+		Promise.reduce(files, function(accumulator, file){
+			return dbpediaSpotlightRequest(file).then(function(result){});
+		},0)
+		.then(function(){
+			console.log("DBpedia extraction finished.")
+			resolve();
+		})
+	});
+}
+
+var dbpediaSpotlightRequest = function(file){
+	return new Promise(function (resolve, reject){
+		var json = JSON.parse(fs.readFileSync(jsonpath+'/'+file));
+
+		if(!("dbpedia" in json) || json.dbpedia === null){
+			var request = 'curl http://localhost:2222/rest/annotate --data-urlencode "text='+json.content.replace(/[\\$'"]/g, "\\$&")+'" --data "confidence=0.5"  --data "types=SoccerPlayer,SoccerManager,SoccerClub,SoccerLeague"'
+
+			exec(request, function(error, stdout, stderr){
+				var $ = cheerio.load(stdout);
+				var result = $('div').html();
+				json.dbpedia = result
+
+				fs.writeFile(jsonpath+'/'+file, JSON.stringify(json, null, 2), function(err){
+					if(err) reject(err);
+					console.log('DBpedia extracted for '+file);
+					resolve();
+				})
+			});
+		}else{
+			resolve();
+		}
+	});
+}
+
 Promise.reduce(pool, function(accumulator, url){
 	return crawlFromUrl(url).then(function(result){});
 },0)
+.then(readDownloadedFiles)
+.then(dbpediaExtraction)
 .then(function(){
-	console.log("Initiating the JSON files creation process...")
-	readDownloadedFiles();
+	console.log("Process finished!");
 })
 
 /* To remove duplicates */
+// var uniqueArray = function(arrArg) {
+//     return arrArg.filter(function(elem, pos, arr) {
+//         return arr.indexOf(elem) == pos;
+//    	});
+// };
 
-function uniqueArray(arrArg) {
-    return arrArg.filter(function(elem, pos, arr) {
-        return arr.indexOf(elem) == pos;
-   	});
-};
-
-// Deleting duplicates
+/* Deleting duplicates */
 // parsedJson.urls = uniqueArray(parsedJson.urls);
