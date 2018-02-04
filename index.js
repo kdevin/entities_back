@@ -3,11 +3,27 @@ const cheerio = require('cheerio'),
 	path = require('path'),
 	Crawler = require('simplecrawler'),
 	Promise = require('bluebird'),
-	exec = require('child_process').exec;
+	exec = require('child_process').exec,
+	Entities = require('html-entities').AllHtmlEntities;
 
+const entities = new Entities();
 
 var pool = [
-	"http://www.skysports.com/football/news/more/1"
+	"http://www.skysports.com/football/news/more/1",
+	"http://www.skysports.com/football/news/more/2",
+	"http://www.skysports.com/football/news/more/3",
+	"http://www.skysports.com/football/news/more/4",
+	"http://www.skysports.com/football/news/more/5",
+	"http://www.skysports.com/football/news/more/6",
+	"http://www.skysports.com/football/news/more/7",
+	"http://www.skysports.com/football/news/more/8",
+	"http://www.skysports.com/football/news/more/9",
+	"http://www.skysports.com/football/news/more/10",
+	"http://www.skysports.com/football/news/more/11",
+	"http://www.skysports.com/football/news/more/12",
+	"http://www.skysports.com/football/news/more/13",
+	"http://www.skysports.com/football/news/more/14",
+	"http://www.skysports.com/football/news/more/15",
 ];
 
 const poolpath = "/football/news";
@@ -15,7 +31,6 @@ const poolpath = "/football/news";
 const htmlpath = './download/',
 	jsonpath = './json/';
 
-var compteur = 0
 
 var crawlFromUrl = function(initialURL) {
 	return new Promise(function (resolve, reject){
@@ -181,12 +196,12 @@ var dbpediaSpotlightRequest = function(file){
 		var json = JSON.parse(fs.readFileSync(jsonpath+'/'+file));
 
 		if(!("dbpedia" in json) || json.dbpedia === null){
-			var request = 'curl http://localhost:2222/rest/annotate --data-urlencode "text='+json.content.replace(/[\\$'"]/g, "\\$&")+'" --data "confidence=0.5"  --data "types=SoccerPlayer,SoccerManager,SoccerClub,SoccerLeague"'
+			var request = 'curl -H "Accept:text/html" http://localhost:2222/rest/annotate --data-urlencode "text='+json.content.replace(/[\\$'"]/g, "\\$&")+'" --data "confidence=0.5"  --data "types=SoccerPlayer,SoccerManager,SoccerClub,SoccerLeague,Stadium,SportsManager"'
 
 			exec(request, function(error, stdout, stderr){
 				var $ = cheerio.load(stdout);
 				var result = $('div').html();
-				json.dbpedia = result
+				json.dbpedia = entities.decode(result).replace(/\\'/g, "'").replace(/\n/g, '');
 
 				fs.writeFile(jsonpath+'/'+file, JSON.stringify(json, null, 2), function(err){
 					if(err) reject(err);
