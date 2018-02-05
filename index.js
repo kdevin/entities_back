@@ -9,21 +9,7 @@ const cheerio = require('cheerio'),
 const entities = new Entities();
 
 var pool = [
-	"http://www.skysports.com/football/news/more/1",
-	"http://www.skysports.com/football/news/more/2",
-	"http://www.skysports.com/football/news/more/3",
-	"http://www.skysports.com/football/news/more/4",
-	"http://www.skysports.com/football/news/more/5",
-	"http://www.skysports.com/football/news/more/6",
-	"http://www.skysports.com/football/news/more/7",
-	"http://www.skysports.com/football/news/more/8",
-	"http://www.skysports.com/football/news/more/9",
-	"http://www.skysports.com/football/news/more/10",
-	"http://www.skysports.com/football/news/more/11",
-	"http://www.skysports.com/football/news/more/12",
-	"http://www.skysports.com/football/news/more/13",
-	"http://www.skysports.com/football/news/more/14",
-	"http://www.skysports.com/football/news/more/15",
+	"http://www.skysports.com/football/news/more/1"
 ];
 
 const poolpath = "/football/news";
@@ -150,7 +136,11 @@ var loadHtmlFile = function(file){
 
 		var title = $('.article__title span').text();
 		var desc = $('p[itemprop=description]').text();
-		var content = $('.article__body > p').not('p[itemprop=description]').text();
+
+		var content = "";
+		$('.article__body > p').not('p[itemprop=description]').each(function(i, element){
+			content += $(this).text().trim()+'\n';
+		});
 
 		var array = {"date" : date, "title" : title, "description" : desc, "content" : content};
 
@@ -221,8 +211,40 @@ Promise.reduce(pool, function(accumulator, url){
 .then(readDownloadedFiles)
 .then(dbpediaExtraction)
 .then(function(){
+	var news = []
+
+	fs.readdir(jsonpath, (err, files) => {
+		if(err) console.error("ERROR when reading the folder."); 
+
+		files.forEach(file => {
+			var json = JSON.parse(fs.readFileSync(jsonpath+'/'+file));
+			news.push(json);
+		});
+
+		fs.writeFile('../pa_front/entities/src/assets/news.json', JSON.stringify(news, null, 2), function(err){
+			if(err) console.log(err);
+		})
+	});
+
 	console.log("Process finished!");
 })
+
+
+// var news = []
+
+// fs.readdir(jsonpath, (err, files) => {
+// 	if(err) console.error("ERROR when reading the folder."); 
+
+// 	files.forEach(file => {
+// 		var json = JSON.parse(fs.readFileSync(jsonpath+'/'+file));
+// 		news.push(json);
+// 	});
+
+// 	fs.writeFile('../news.json', JSON.stringify(news, null, 2), function(err){
+// 		if(err) console.log(err);
+// 	})
+// });
+
 
 /* To remove duplicates */
 // var uniqueArray = function(arrArg) {
